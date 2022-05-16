@@ -1,7 +1,31 @@
-use nom::{character::complete::digit1, combinator::map_res, IResult};
+use nom::branch::alt;
+use nom::character::complete::char;
+use nom::combinator::map;
+use nom::IResult;
 
-pub fn integer(input: &str) -> IResult<&str, u64> {
-    map_res(digit1, str::parse)(input)
+fn zero(input: &str) -> IResult<&str, u64> {
+    map(char('0'), |c| c.to_string().parse::<u64>().unwrap())(input)
+}
+
+fn onenine(input: &str) -> IResult<&str, u64> {
+    map(
+        alt((
+            char('1'),
+            char('2'),
+            char('3'),
+            char('4'),
+            char('5'),
+            char('6'),
+            char('7'),
+            char('8'),
+            char('9'),
+        )),
+        |c| c.to_string().parse::<u64>().unwrap(),
+    )(input)
+}
+
+pub fn digit(input: &str) -> IResult<&str, u64> {
+    alt((zero, onenine))(input)
 }
 
 #[cfg(test)]
@@ -12,15 +36,58 @@ mod tests {
     use super::*;
 
     #[test]
-    fn correct_integer() {
-        assert_eq!(integer("123"), Ok(("", 123)));
+    fn parse_zero() {
+        assert_eq!(zero("0"), Ok(("", 0)));
     }
 
     #[test]
-    fn incorrect_integer() {
+    fn failed_parse_one() {
+        assert_eq!(zero("1"), Err(Err::Error(Error::new("1", ErrorKind::Char))))
+    }
+
+    #[test]
+    fn parse_one() {
+        assert_eq!(onenine("1"), Ok(("", 1)));
+    }
+
+    #[test]
+    fn parse_nine() {
+        assert_eq!(onenine("9"), Ok(("", 9)));
+    }
+
+    #[test]
+    fn failed_parse_a() {
         assert_eq!(
-            integer("a"),
-            Err(Err::Error(Error::new("a", ErrorKind::Digit)))
+            digit("a"),
+            Err(Err::Error(Error::new("a", ErrorKind::Char)))
+        )
+    }
+
+    #[test]
+    fn digit_zero() {
+        assert_eq!(digit("0"), Ok(("", 0)));
+    }
+
+    #[test]
+    fn digit_one() {
+        assert_eq!(digit("1"), Ok(("", 1)));
+    }
+
+    #[test]
+    fn digit_one_nine() {
+        assert_eq!(digit("19"), Ok(("9", 1)));
+    }
+
+    #[test]
+    fn digit_one_alpha() {
+        assert_eq!(digit("1a"), Ok(("a", 1)));
+    }
+
+    #[test]
+    fn digit_alpha() {
+        assert_eq!(
+            digit("a"),
+            Err(Err::Error(Error::new("a", ErrorKind::Char)))
         );
     }
 }
