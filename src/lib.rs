@@ -1,6 +1,7 @@
 use nom::branch::alt;
 use nom::character::complete::char;
 use nom::combinator::map;
+use nom::multi::many1;
 use nom::IResult;
 
 fn zero(input: &str) -> IResult<&str, u64> {
@@ -26,6 +27,13 @@ fn onenine(input: &str) -> IResult<&str, u64> {
 
 pub fn digit(input: &str) -> IResult<&str, u64> {
     alt((zero, onenine))(input)
+}
+
+pub fn digits(input: &str) -> IResult<&str, u64> {
+    let (rest, v) = many1(digit)(input)?;
+    let str_vec: String = v.iter().map(|d| d.to_string()).collect::<String>();
+
+    Ok((rest, str_vec.parse().unwrap()))
 }
 
 #[cfg(test)]
@@ -89,5 +97,10 @@ mod tests {
             digit("a"),
             Err(Err::Error(Error::new("a", ErrorKind::Char)))
         );
+    }
+
+    #[test]
+    fn digits1() {
+        assert_eq!(digits("123"), Ok(("", 123)))
     }
 }
