@@ -37,40 +37,43 @@ fn integer(input: &str) -> IResult<&str, u64> {
     digits(input)
 }
 
-/// Recognize "0"
-fn zero(input: &str) -> IResult<&str, u64> {
-    map(char('0'), |c| c.to_string().parse::<u64>().unwrap())(input)
-}
-
-/// Recognize '1' ... '9'
-fn onenine(input: &str) -> IResult<&str, u64> {
-    map(
-        alt((
-            char('1'),
-            char('2'),
-            char('3'),
-            char('4'),
-            char('5'),
-            char('6'),
-            char('7'),
-            char('8'),
-            char('9'),
-        )),
-        |c| c.to_string().parse::<u64>().unwrap(),
-    )(input)
-}
-
-/// Recognize a digit
-fn digit(input: &str) -> IResult<&str, u64> {
-    alt((zero, onenine))(input)
-}
-
 /// Recognize digits
+/// digits = digit
+///        | digit digits
 fn digits(input: &str) -> IResult<&str, u64> {
     let (rest, v) = many1(digit)(input)?;
     let str_vec: String = v.iter().map(|d| d.to_string()).collect::<String>();
 
     Ok((rest, str_vec.parse().unwrap()))
+}
+
+/// Recognize a digit
+/// digit = zero
+///       | onenine
+fn digit(input: &str) -> IResult<&str, char> {
+    alt((zero, onenine))(input)
+}
+
+/// Recognize '1' ... '9'
+/// onenine = 1...9
+fn onenine(input: &str) -> IResult<&str, char> {
+    alt((
+        char('1'),
+        char('2'),
+        char('3'),
+        char('4'),
+        char('5'),
+        char('6'),
+        char('7'),
+        char('8'),
+        char('9'),
+    ))(input)
+}
+
+/// Recognize "0"
+/// zero = 0
+fn zero(input: &str) -> IResult<&str, char> {
+    char('0')(input)
 }
 
 #[cfg(test)]
@@ -82,7 +85,7 @@ mod tests {
 
     #[test]
     fn assert_zero() {
-        assert_eq!(zero("0"), Ok(("", 0)));
+        assert_eq!(zero("0"), Ok(("", '0')));
     }
 
     #[test]
@@ -92,12 +95,12 @@ mod tests {
 
     #[test]
     fn parse_one() {
-        assert_eq!(onenine("1"), Ok(("", 1)));
+        assert_eq!(onenine("1"), Ok(("", '1')));
     }
 
     #[test]
     fn parse_nine() {
-        assert_eq!(onenine("9"), Ok(("", 9)));
+        assert_eq!(onenine("9"), Ok(("", '9')));
     }
 
     #[test]
@@ -110,22 +113,22 @@ mod tests {
 
     #[test]
     fn digit_zero() {
-        assert_eq!(digit("0"), Ok(("", 0)));
+        assert_eq!(digit("0"), Ok(("", '0')));
     }
 
     #[test]
     fn digit_one() {
-        assert_eq!(digit("1"), Ok(("", 1)));
+        assert_eq!(digit("1"), Ok(("", '1')));
     }
 
     #[test]
     fn digit_one_nine() {
-        assert_eq!(digit("19"), Ok(("9", 1)));
+        assert_eq!(digit("19"), Ok(("9", '1')));
     }
 
     #[test]
     fn digit_one_alpha() {
-        assert_eq!(digit("1a"), Ok(("a", 1)));
+        assert_eq!(digit("1a"), Ok(("a", '1')));
     }
 
     #[test]
