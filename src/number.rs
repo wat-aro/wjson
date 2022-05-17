@@ -9,7 +9,7 @@ pub enum Number {
     PositiveInteger(u64),
 }
 
-/// Recognize "0"
+/// Recognize digits
 ///
 /// ```rust
 /// use nom::error::{ErrorKind, Error};
@@ -18,11 +18,14 @@ pub enum Number {
 /// # fn main() {
 ///
 ///
-/// // the parser will parse "0"
-/// assert_eq!(number("0"), Ok(("", Number::PositiveInteger(0))));
+/// // the parser will parse "3"
+/// assert_eq!(number("3"), Ok(("", Number::PositiveInteger(3))));
+///
+/// // the parser will parse "32"
+/// assert_eq!(number("32"), Ok(("", Number::PositiveInteger(32))));
 ///
 /// // this will fail if number fails
-/// assert_eq!(number("1"), Err(Err::Error(Error::new("1", ErrorKind::Char))));
+/// assert_eq!(number("a"), Err(Err::Error(Error::new("a", ErrorKind::Char))));
 /// # }
 /// ```
 pub fn number(input: &str) -> IResult<&str, Number> {
@@ -31,7 +34,7 @@ pub fn number(input: &str) -> IResult<&str, Number> {
 
 /// Recognize integer
 fn integer(input: &str) -> IResult<&str, u64> {
-    zero(input)
+    digits(input)
 }
 
 /// Recognize "0"
