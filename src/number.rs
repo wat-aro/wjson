@@ -1,7 +1,7 @@
 use nom::branch::alt;
 use nom::character::complete::char;
-use nom::combinator::map;
-use nom::multi::many1;
+use nom::combinator::{map, recognize};
+use nom::sequence::pair;
 use nom::IResult;
 
 #[derive(Debug, PartialEq)]
@@ -34,46 +34,56 @@ pub fn number(input: &str) -> IResult<&str, Number> {
 
 /// Recognize integer
 fn integer(input: &str) -> IResult<&str, u64> {
-    digits(input)
+    map(
+        alt((
+            map(recognize(pair(onenine, digits)), |str| str.to_string()),
+            digit,
+        )),
+        |str| str.parse::<u64>().unwrap(),
+    )(input)
 }
 
 /// Recognize digits
 /// digits = digit
 ///        | digit digits
-fn digits(input: &str) -> IResult<&str, u64> {
-    let (rest, v) = many1(digit)(input)?;
-    let str_vec: String = v.iter().map(|d| d.to_string()).collect::<String>();
-
-    Ok((rest, str_vec.parse().unwrap()))
+fn digits(input: &str) -> IResult<&str, String> {
+    alt((
+        map(recognize(pair(digit, digits)), |str| str.to_string()),
+        digit,
+    ))(input)
+    // alt((recognize(pair(digit, digits)), digit))(input)
 }
 
 /// Recognize a digit
 /// digit = zero
 ///       | onenine
-fn digit(input: &str) -> IResult<&str, char> {
+fn digit(input: &str) -> IResult<&str, String> {
     alt((zero, onenine))(input)
 }
 
 /// Recognize '1' ... '9'
 /// onenine = 1...9
-fn onenine(input: &str) -> IResult<&str, char> {
-    alt((
-        char('1'),
-        char('2'),
-        char('3'),
-        char('4'),
-        char('5'),
-        char('6'),
-        char('7'),
-        char('8'),
-        char('9'),
-    ))(input)
+fn onenine(input: &str) -> IResult<&str, String> {
+    map(
+        alt((
+            char('1'),
+            char('2'),
+            char('3'),
+            char('4'),
+            char('5'),
+            char('6'),
+            char('7'),
+            char('8'),
+            char('9'),
+        )),
+        |c| c.to_string(),
+    )(input)
 }
 
 /// Recognize "0"
 /// zero = 0
-fn zero(input: &str) -> IResult<&str, char> {
-    char('0')(input)
+fn zero(input: &str) -> IResult<&str, String> {
+    map(char('0'), |c| c.to_string())(input)
 }
 
 #[cfg(test)]
@@ -85,7 +95,7 @@ mod tests {
 
     #[test]
     fn assert_zero() {
-        assert_eq!(zero("0"), Ok(("", '0')));
+        assert_eq!(zero("0"), Ok(("", "0".to_string())));
     }
 
     #[test]
@@ -95,12 +105,12 @@ mod tests {
 
     #[test]
     fn parse_one() {
-        assert_eq!(onenine("1"), Ok(("", '1')));
+        assert_eq!(onenine("1"), Ok(("", "1".to_string())));
     }
 
     #[test]
     fn parse_nine() {
-        assert_eq!(onenine("9"), Ok(("", '9')));
+        assert_eq!(onenine("9"), Ok(("", "9".to_string())));
     }
 
     #[test]
@@ -113,22 +123,22 @@ mod tests {
 
     #[test]
     fn digit_zero() {
-        assert_eq!(digit("0"), Ok(("", '0')));
+        assert_eq!(digit("0"), Ok(("", "0".to_string())));
     }
 
     #[test]
     fn digit_one() {
-        assert_eq!(digit("1"), Ok(("", '1')));
+        assert_eq!(digit("1"), Ok(("", "1".to_string())));
     }
 
     #[test]
     fn digit_one_nine() {
-        assert_eq!(digit("19"), Ok(("9", '1')));
+        assert_eq!(digit("19"), Ok(("9", "1".to_string())));
     }
 
     #[test]
     fn digit_one_alpha() {
-        assert_eq!(digit("1a"), Ok(("a", '1')));
+        assert_eq!(digit("1a"), Ok(("a", "1".to_string())));
     }
 
     #[test]
@@ -141,6 +151,6 @@ mod tests {
 
     #[test]
     fn digits1() {
-        assert_eq!(Ok(("", 123)), digits("123"))
+        assert_eq!(digits("123"), Ok(("", "123".to_string())))
     }
 }
