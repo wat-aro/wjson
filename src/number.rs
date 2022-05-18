@@ -1,6 +1,6 @@
 use nom::branch::alt;
 use nom::character::complete::{char, one_of};
-use nom::combinator::{map, opt, recognize};
+use nom::combinator::{map, opt, recognize, value};
 use nom::sequence::{pair, preceded, tuple};
 use nom::IResult;
 
@@ -15,15 +15,30 @@ pub enum Number {
 struct Num {
     integer: Integer,
     fraction: Option<String>,
+    exponent: Option<Exponent>,
 }
 
 impl Into<Number> for Num {
     fn into(self) -> Number {
-        match (self.integer, self.fraction) {
-            (Integer::Positive(str), None) => Number::PositiveInteger(str.parse::<u64>().unwrap()),
-            (Integer::Negative(str), None) => Number::NegativeInteger(str.parse::<i64>().unwrap()),
-            (int, Some(decimal)) => Number::Float(
+        match (self.integer, self.fraction, self.exponent) {
+            (Integer::Positive(str), None, None) => {
+                Number::PositiveInteger(str.parse::<u64>().unwrap())
+            }
+            (Integer::Negative(str), None, None) => {
+                Number::NegativeInteger(str.parse::<i64>().unwrap())
+            }
+            (int, Some(decimal), None) => Number::Float(
                 format!("{}.{}", int.to_string(), decimal)
+                    .parse::<f64>()
+                    .unwrap(),
+            ),
+            (int, None, Some(exponent)) => Number::Float(
+                format!("{}E{}", int.to_string(), exponent.to_string())
+                    .parse::<f64>()
+                    .unwrap(),
+            ),
+            (int, Some(decimal), Some(exponent)) => Number::Float(
+                format!("{}.{}E{}", int.to_string(), decimal, exponent.to_string())
                     .parse::<f64>()
                     .unwrap(),
             ),
@@ -46,7 +61,7 @@ impl ToString for Integer {
     }
 }
 
-/// Recognize digits
+/// Recognize number
 ///
 /// ```rust
 /// use nom::error::{ErrorKind, Error};
@@ -70,6 +85,15 @@ impl ToString for Integer {
 /// // parser will parse "-3.21"
 /// assert_eq!(number("-3.21"), Ok(("", Number::Float(-3.21))));
 ///
+/// // parser will parse "-1E12"
+/// assert_eq!(number("-1E12"), Ok(("", Number::Float(-1E12))));
+///
+/// // parser will parse "3e21"
+/// assert_eq!(number("3e21"), Ok(("", Number::Float(3e21))));
+///
+/// // parser will parse "3.2e-2"
+/// assert_eq!(number("3.2e-2"), Ok(("", Number::Float(0.032))));
+///
 /// // this will fail if number fails
 /// assert_eq!(number("a"), Err(Err::Error(Error::new("a", ErrorKind::OneOf))));
 /// # }
@@ -78,7 +102,12 @@ impl ToString for Integer {
 pub fn number(input: &str) -> IResult<&str, Number> {
     let (rest, integer) = integer(input)?;
     let (rest, fraction) = fraction(rest)?;
-    let num = Num { integer, fraction };
+    let (rest, exponent) = exponent(rest)?;
+    let num = Num {
+        integer,
+        fraction,
+        exponent,
+    };
 
     Ok((rest, num.into()))
 }
@@ -141,6 +170,53 @@ fn zero(input: &str) -> IResult<&str, String> {
 ///          | "." digits
 fn fraction(input: &str) -> IResult<&str, Option<String>> {
     opt(preceded(char('.'), digits))(input)
+}
+
+#[derive(Debug, PartialEq)]
+struct Exponent {
+    sign: Sign,
+    digits: String,
+}
+
+impl ToString for Exponent {
+    fn to_string(&self) -> String {
+        format!("{}{}", self.sign.to_string(), self.digits.to_string())
+    }
+}
+
+/// exponent = ""
+///          | 'E' sign digits
+///          | 'e' sign digits
+fn exponent(input: &str) -> IResult<&str, Option<Exponent>> {
+    opt(map(
+        tuple((alt((char('E'), char('e'))), sign, digits)),
+        |(_, s, d)| Exponent { sign: s, digits: d },
+    ))(input)
+}
+
+#[derive(Debug, PartialEq, Clone)]
+enum Sign {
+    Plus,
+    Minus,
+}
+
+impl ToString for Sign {
+    fn to_string(&self) -> String {
+        match self {
+            Sign::Plus => "+".to_string(),
+            Sign::Minus => "-".to_string(),
+        }
+    }
+}
+
+/// sign = ""
+///      | '+'
+///      | '-'
+fn sign(input: &str) -> IResult<&str, Sign> {
+    alt((
+        value(Sign::Minus, char('-')),
+        value(Sign::Plus, opt(char('+'))),
+    ))(input)
 }
 
 #[cfg(test)]
@@ -232,5 +308,81 @@ mod tests {
     #[test]
     fn rest_fraction() {
         assert_eq!(fraction(".123"), Ok(("", Some("123".to_string()))))
+    }
+
+    #[test]
+    fn sign_empty() {
+        assert_eq!(sign(""), Ok(("", Sign::Plus)));
+    }
+
+    #[test]
+    fn sign_plus() {
+        assert_eq!(sign("+2"), Ok(("2", Sign::Plus)));
+    }
+
+    #[test]
+    fn sign_minus() {
+        assert_eq!(sign("-2"), Ok(("2", Sign::Minus)));
+    }
+
+    #[test]
+    fn exponent_empty() {
+        assert_eq!(exponent(""), Ok(("", None)));
+    }
+
+    #[test]
+    fn exponent_e_plus() {
+        assert_eq!(
+            exponent("e+23"),
+            Ok((
+                "",
+                Some(Exponent {
+                    sign: Sign::Plus,
+                    digits: "23".to_string()
+                })
+            ))
+        );
+    }
+
+    #[test]
+    fn exponent_e_minus() {
+        assert_eq!(
+            exponent("e-23"),
+            Ok((
+                "",
+                Some(Exponent {
+                    sign: Sign::Minus,
+                    digits: "23".to_string()
+                })
+            ))
+        );
+    }
+
+    #[test]
+    fn exponent_large_e_plus() {
+        assert_eq!(
+            exponent("E+23"),
+            Ok((
+                "",
+                Some(Exponent {
+                    sign: Sign::Plus,
+                    digits: "23".to_string()
+                })
+            ))
+        );
+    }
+
+    #[test]
+    fn exponent_large_e_minus() {
+        assert_eq!(
+            exponent("E-23"),
+            Ok((
+                "",
+                Some(Exponent {
+                    sign: Sign::Minus,
+                    digits: "23".to_string()
+                })
+            ))
+        );
     }
 }
