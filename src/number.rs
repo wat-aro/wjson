@@ -1,12 +1,13 @@
 use nom::branch::alt;
 use nom::character::complete::char;
 use nom::combinator::{map, recognize};
-use nom::sequence::pair;
+use nom::sequence::{pair, tuple};
 use nom::IResult;
 
 #[derive(Debug, PartialEq)]
 pub enum Number {
     PositiveInteger(u64),
+    NegativeInteger(i64),
 }
 
 /// Recognize digits
@@ -24,23 +25,39 @@ pub enum Number {
 /// // the parser will parse "32"
 /// assert_eq!(number("32"), Ok(("", Number::PositiveInteger(32))));
 ///
+/// // the parser will parse "-32"
+/// assert_eq!(number("-32"), Ok(("", Number::NegativeInteger(-32))));
+///
 /// // this will fail if number fails
 /// assert_eq!(number("a"), Err(Err::Error(Error::new("a", ErrorKind::Char))));
 /// # }
 /// ```
 pub fn number(input: &str) -> IResult<&str, Number> {
-    map(integer, |u: u64| Number::PositiveInteger(u))(input)
+    integer(input)
 }
 
 /// Recognize integer
-fn integer(input: &str) -> IResult<&str, u64> {
-    map(
-        alt((
-            map(recognize(pair(onenine, digits)), |str| str.to_string()),
-            digit,
-        )),
-        |str| str.parse::<u64>().unwrap(),
-    )(input)
+/// integer = digit
+///         | onenine digits
+///         | '-' digit
+///         | '-' onenine digits
+fn integer(input: &str) -> IResult<&str, Number> {
+    alt((
+        map(
+            alt((
+                recognize(tuple((char('-'), onenine, digits))),
+                recognize(pair(char('-'), digit)),
+            )),
+            |str| Number::NegativeInteger(str.parse::<i64>().unwrap()),
+        ),
+        map(
+            alt((
+                map(recognize(pair(onenine, digits)), |str| str.to_string()),
+                digit,
+            )),
+            |str| Number::PositiveInteger(str.parse::<u64>().unwrap()),
+        ),
+    ))(input)
 }
 
 /// Recognize digits
@@ -152,5 +169,15 @@ mod tests {
     #[test]
     fn digits1() {
         assert_eq!(digits("123"), Ok(("", "123".to_string())))
+    }
+
+    #[test]
+    fn parse_negative_digit() {
+        assert_eq!(integer("-1"), Ok(("", Number::NegativeInteger(-1))));
+    }
+
+    #[test]
+    fn parse_negative_digits() {
+        assert_eq!(integer("-123"), Ok(("", Number::NegativeInteger(-123))));
     }
 }
