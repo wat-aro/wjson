@@ -1,25 +1,32 @@
 use nom::branch::alt;
-use nom::character::complete::char;
-use nom::combinator::{map, recognize};
-use nom::sequence::{pair, tuple};
+use nom::character::complete::{char, one_of};
+use nom::combinator::{map, opt, recognize};
+use nom::sequence::{pair, preceded, tuple};
 use nom::IResult;
 
 #[derive(Debug, PartialEq)]
 pub enum Number {
     PositiveInteger(u64),
     NegativeInteger(i64),
+    Float(f64),
 }
 
 #[derive(Debug)]
 struct Num {
     integer: Integer,
+    fraction: Option<String>,
 }
 
 impl Into<Number> for Num {
     fn into(self) -> Number {
-        match self.integer {
-            Integer::Positive(str) => Number::PositiveInteger(str.parse::<u64>().unwrap()),
-            Integer::Negative(str) => Number::NegativeInteger(str.parse::<i64>().unwrap()),
+        match (self.integer, self.fraction) {
+            (Integer::Positive(str), None) => Number::PositiveInteger(str.parse::<u64>().unwrap()),
+            (Integer::Negative(str), None) => Number::NegativeInteger(str.parse::<i64>().unwrap()),
+            (int, Some(decimal)) => Number::Float(
+                format!("{}.{}", int.to_string(), decimal)
+                    .parse::<f64>()
+                    .unwrap(),
+            ),
         }
     }
 }
@@ -28,6 +35,15 @@ impl Into<Number> for Num {
 enum Integer {
     Positive(String),
     Negative(String),
+}
+
+impl ToString for Integer {
+    fn to_string(&self) -> String {
+        match self {
+            Self::Positive(str) => str.to_string(),
+            Self::Negative(str) => str.to_string(),
+        }
+    }
 }
 
 /// Recognize digits
@@ -48,13 +64,21 @@ enum Integer {
 /// // the parser will parse "-32"
 /// assert_eq!(number("-32"), Ok(("", Number::NegativeInteger(-32))));
 ///
+/// // parser will parse "3.21"
+/// assert_eq!(number("3.21"), Ok(("", Number::Float(3.21))));
+///
+/// // parser will parse "-3.21"
+/// assert_eq!(number("-3.21"), Ok(("", Number::Float(-3.21))));
+///
 /// // this will fail if number fails
-/// assert_eq!(number("a"), Err(Err::Error(Error::new("a", ErrorKind::Char))));
+/// assert_eq!(number("a"), Err(Err::Error(Error::new("a", ErrorKind::OneOf))));
 /// # }
 /// ```
+// number = integer fraction
 pub fn number(input: &str) -> IResult<&str, Number> {
     let (rest, integer) = integer(input)?;
-    let num = Num { integer };
+    let (rest, fraction) = fraction(rest)?;
+    let num = Num { integer, fraction };
 
     Ok((rest, num.into()))
 }
@@ -104,26 +128,19 @@ fn digit(input: &str) -> IResult<&str, String> {
 /// Recognize '1' ... '9'
 /// onenine = 1...9
 fn onenine(input: &str) -> IResult<&str, String> {
-    map(
-        alt((
-            char('1'),
-            char('2'),
-            char('3'),
-            char('4'),
-            char('5'),
-            char('6'),
-            char('7'),
-            char('8'),
-            char('9'),
-        )),
-        |c| c.to_string(),
-    )(input)
+    map(one_of("123456789"), |c| c.to_string())(input)
 }
 
 /// Recognize "0"
 /// zero = 0
 fn zero(input: &str) -> IResult<&str, String> {
     map(char('0'), |c| c.to_string())(input)
+}
+
+/// graction = ""
+///          | "." digits
+fn fraction(input: &str) -> IResult<&str, Option<String>> {
+    opt(preceded(char('.'), digits))(input)
 }
 
 #[cfg(test)]
@@ -157,7 +174,7 @@ mod tests {
     fn failed_parse_a() {
         assert_eq!(
             digit("a"),
-            Err(Err::Error(Error::new("a", ErrorKind::Char)))
+            Err(Err::Error(Error::new("a", ErrorKind::OneOf)))
         )
     }
 
@@ -185,7 +202,7 @@ mod tests {
     fn digit_alpha() {
         assert_eq!(
             digit("a"),
-            Err(Err::Error(Error::new("a", ErrorKind::Char)))
+            Err(Err::Error(Error::new("a", ErrorKind::OneOf)))
         );
     }
 
@@ -205,5 +222,15 @@ mod tests {
             integer("-123"),
             Ok(("", Integer::Negative("-123".to_string())))
         );
+    }
+
+    #[test]
+    fn empty_fraction() {
+        assert_eq!(fraction(""), Ok(("", None)))
+    }
+
+    #[test]
+    fn rest_fraction() {
+        assert_eq!(fraction(".123"), Ok(("", Some("123".to_string()))))
     }
 }
