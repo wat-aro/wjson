@@ -150,7 +150,7 @@ fn digits(input: &str) -> IResult<&str, String> {
 /// Recognize a digit
 /// digit = zero
 ///       | onenine
-fn digit(input: &str) -> IResult<&str, String> {
+pub fn digit(input: &str) -> IResult<&str, String> {
     alt((zero, onenine))(input)
 }
 

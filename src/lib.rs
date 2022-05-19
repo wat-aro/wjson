@@ -1,6 +1,7 @@
 pub mod boolean;
 pub mod null;
 pub mod number;
+pub mod string;
 
 use boolean::{false_parser, true_parser};
 use nom::{
@@ -10,10 +11,12 @@ use nom::{
 use null::null;
 use number::{number, Number};
 use std::error::Error;
+use string::string;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     Number(Number),
+    String(String),
     Null,
     True,
     False,
@@ -54,11 +57,17 @@ pub enum Value {
 /// if let Ok(actual) = parse("false") {
 ///   assert_eq!(actual, Value::False);
 /// }
+///
+/// // the parser will parse "\"hello\""
+/// if let Ok(actual) = parse("\"hello\"") {
+///   assert_eq!(actual, Value::String("hello".to_string()))
+/// }
 /// # }
 /// ```
 pub fn parse<'a>(input: &'a str) -> Result<Value, Box<dyn Error + 'a>> {
     let (_, result) = alt((
         map(number, |num| Value::Number(num)),
+        map(string, |json_string| Value::String(json_string.0)),
         value(Value::Null, null),
         value(Value::True, true_parser),
         value(Value::False, false_parser),
