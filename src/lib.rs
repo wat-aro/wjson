@@ -6,7 +6,10 @@ pub mod string;
 use boolean::{false_parser, true_parser};
 use nom::{
     branch::alt,
+    character::complete::space0,
     combinator::{map, value},
+    sequence::delimited,
+    IResult,
 };
 use null::null;
 use number::{number, Number};
@@ -37,10 +40,11 @@ pub enum Value {
 ///   assert_eq!(actual, Value::Number(Number::PositiveInteger(3)));
 /// }
 ///
-/// // the parser will parse "3"
-/// if let Ok(actual) = parse("3") {
+/// // the parser will parse " 3 "
+/// if let Ok(actual) = parse(" 3 ") {
 ///   assert_eq!(actual, Value::Number(Number::PositiveInteger(3)));
 /// }
+///
 /// // the parser will parse "3.2E-1"
 /// if let Ok(actual) = parse("3.2E-1") {
 ///   assert_eq!(actual, Value::Number(Number::Float(0.32)));
@@ -65,15 +69,31 @@ pub enum Value {
 /// # }
 /// ```
 pub fn parse<'a>(input: &'a str) -> Result<Value, Box<dyn Error + 'a>> {
-    let (_, result) = alt((
+    let (_, result) = json(input)?;
+
+    Ok(result)
+}
+
+fn json(input: &str) -> IResult<&str, Value> {
+    element(input)
+}
+
+fn element(input: &str) -> IResult<&str, Value> {
+    delimited(ws, value_parser, ws)(input)
+}
+
+fn value_parser(input: &str) -> IResult<&str, Value> {
+    alt((
         map(number, |num| Value::Number(num)),
         map(string, |json_string| Value::String(json_string.0)),
         value(Value::Null, null),
         value(Value::True, true_parser),
         value(Value::False, false_parser),
-    ))(input)?;
+    ))(input)
+}
 
-    Ok(result)
+fn ws(input: &str) -> IResult<&str, &str> {
+    space0(input)
 }
 
 #[cfg(test)]
