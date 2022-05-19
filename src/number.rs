@@ -6,7 +6,7 @@ use nom::combinator::{map, opt, recognize, value};
 use nom::sequence::{pair, preceded, tuple};
 use nom::IResult;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Number {
     PositiveInteger(u64),
     NegativeInteger(i64),
