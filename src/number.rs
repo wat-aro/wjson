@@ -1,3 +1,5 @@
+use std::fmt;
+
 use nom::branch::alt;
 use nom::character::complete::{char, one_of};
 use nom::combinator::{map, opt, recognize, value};
@@ -27,18 +29,16 @@ impl Into<Number> for Num {
             (Integer::Negative(str), None, None) => {
                 Number::NegativeInteger(str.parse::<i64>().unwrap())
             }
-            (int, Some(decimal), None) => Number::Float(
-                format!("{}.{}", int.to_string(), decimal)
-                    .parse::<f64>()
-                    .unwrap(),
-            ),
+            (int, Some(decimal), None) => {
+                Number::Float(format!("{}.{}", int, decimal).parse::<f64>().unwrap())
+            }
             (int, None, Some(exponent)) => Number::Float(
-                format!("{}E{}", int.to_string(), exponent.to_string())
+                format!("{}E{}", int, exponent.to_string())
                     .parse::<f64>()
                     .unwrap(),
             ),
             (int, Some(decimal), Some(exponent)) => Number::Float(
-                format!("{}.{}E{}", int.to_string(), decimal, exponent.to_string())
+                format!("{}.{}E{}", int, decimal, exponent.to_string())
                     .parse::<f64>()
                     .unwrap(),
             ),
@@ -52,11 +52,11 @@ enum Integer {
     Negative(String),
 }
 
-impl ToString for Integer {
-    fn to_string(&self) -> String {
+impl fmt::Display for Integer {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Positive(str) => str.to_string(),
-            Self::Negative(str) => str.to_string(),
+            Self::Positive(str) => write!(f, "{}", str.to_string()),
+            Self::Negative(str) => write!(f, "{}", str.to_string()),
         }
     }
 }
