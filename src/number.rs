@@ -66,7 +66,7 @@ impl fmt::Display for Integer {
 /// ```rust
 /// use nom::error::{ErrorKind, Error};
 /// use nom::Err;
-/// use wjson::number::{number, Number};
+/// use wson::number::{number, Number};
 /// # fn main() {
 ///
 ///

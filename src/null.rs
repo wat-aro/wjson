@@ -5,7 +5,7 @@ use nom::{bytes::complete::tag, combinator::value, IResult};
 /// ```rust
 /// use nom::error::{ErrorKind, Error};
 /// use nom::Err;
-/// use wjson::null::{null, Null};
+/// use wson::null::{null, Null};
 /// # fn main() {
 ///
 ///

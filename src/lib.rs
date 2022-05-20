@@ -30,8 +30,8 @@ pub enum Value {
 /// ```rust
 /// use nom::error::{ErrorKind, Error};
 /// use nom::Err;
-/// use wjson::number::Number;
-/// use wjson::{parse, Value};
+/// use wson::number::Number;
+/// use wson::{parse, Value};
 /// # fn main() {
 ///
 ///

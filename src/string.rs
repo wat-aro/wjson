@@ -14,7 +14,7 @@ pub struct JsonString(pub String);
 
 /// Recognize string
 /// ```rust
-/// use wjson::string::{string, JsonString};
+/// use wson::string::{string, JsonString};
 /// # fn main() {
 /// if let Ok(value) = string("\"\"") {
 ///   assert_eq!(value, ("", JsonString("".to_string())))
