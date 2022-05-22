@@ -6,9 +6,10 @@ pub mod string;
 use boolean::{false_parser, true_parser};
 use nom::{
     branch::alt,
+    bytes::complete::tag,
     character::complete::space0,
     combinator::{map, value},
-    sequence::delimited,
+    sequence::{delimited, separated_pair},
     IResult,
 };
 use null::null;
@@ -18,6 +19,7 @@ use string::string;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
+    Array(Vec<Value>),
     Number(Number),
     String(String),
     Null,
@@ -77,18 +79,39 @@ fn json(input: &str) -> IResult<&str, Value> {
     element(input)
 }
 
-fn element(input: &str) -> IResult<&str, Value> {
-    delimited(ws, value_parser, ws)(input)
-}
-
 fn value_parser(input: &str) -> IResult<&str, Value> {
     alt((
+        map(array, |v| Value::Array(v)),
         map(number, |num| Value::Number(num)),
         map(string, |json_string| Value::String(json_string.0)),
         value(Value::Null, null),
         value(Value::True, true_parser),
         value(Value::False, false_parser),
     ))(input)
+}
+
+fn array(input: &str) -> IResult<&str, Vec<Value>> {
+    alt((
+        value(vec![], delimited(tag("["), ws, tag("]"))),
+        delimited(tag("["), elements, tag("]")),
+    ))(input)
+}
+
+fn elements(input: &str) -> IResult<&str, Vec<Value>> {
+    alt((
+        map(
+            separated_pair(element, tag(","), elements),
+            |(e, es): (Value, Vec<Value>)| {
+                let vec = vec![e];
+                [vec, es].concat()
+            },
+        ),
+        map(element, |e| vec![e]),
+    ))(input)
+}
+
+fn element(input: &str) -> IResult<&str, Value> {
+    delimited(ws, value_parser, ws)(input)
 }
 
 fn ws(input: &str) -> IResult<&str, &str> {
@@ -98,11 +121,61 @@ fn ws(input: &str) -> IResult<&str, &str> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::error;
+
+    type TestResult = Result<(), Box<dyn error::Error>>;
 
     #[test]
-    fn parse_zero() {
-        if let Ok(value) = parse("0") {
-            assert_eq!(value, Value::Number(Number::PositiveInteger(0)))
-        }
+    fn parse_zero() -> TestResult {
+        let value = parse("0")?;
+        assert_eq!(value, Value::Number(Number::PositiveInteger(0)));
+        Ok(())
+    }
+
+    #[test]
+    fn empty_array() -> TestResult {
+        let value = array("[]")?;
+        assert_eq!(value, ("", vec![]));
+        Ok(())
+    }
+
+    #[test]
+    fn a_number_array() -> TestResult {
+        let value = array("[1]")?;
+        assert_eq!(value, ("", vec![Value::Number(Number::PositiveInteger(1))]));
+        Ok(())
+    }
+
+    #[test]
+    fn multiple_number_array() -> TestResult {
+        let value = array("[1, 2]")?;
+        assert_eq!(
+            value,
+            (
+                "",
+                vec![
+                    Value::Number(Number::PositiveInteger(1)),
+                    Value::Number(Number::PositiveInteger(2))
+                ]
+            )
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn multiple_string_and_number_array() -> TestResult {
+        let value = array("[1, \"str\", 2.5e3]")?;
+        assert_eq!(
+            value,
+            (
+                "",
+                vec![
+                    Value::Number(Number::PositiveInteger(1)),
+                    Value::String("str".to_string()),
+                    Value::Number(Number::Float(2500.0))
+                ]
+            )
+        );
+        Ok(())
     }
 }
