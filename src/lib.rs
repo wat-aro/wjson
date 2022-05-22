@@ -32,40 +32,39 @@ pub enum Value {
 /// use nom::Err;
 /// use wson::number::Number;
 /// use wson::{parse, Value};
-/// # fn main() {
+/// # use std::error;
+/// # fn main() -> Result<(), Box<dyn error::Error>> {
 ///
 ///
 /// // the parser will parse "3"
-/// if let Ok(actual) = parse("3") {
-///   assert_eq!(actual, Value::Number(Number::PositiveInteger(3)));
-/// }
+/// let actual = parse("3")?;
+/// assert_eq!(actual, Value::Number(Number::PositiveInteger(3)));
 ///
 /// // the parser will parse " 3 "
-/// if let Ok(actual) = parse(" 3 ") {
-///   assert_eq!(actual, Value::Number(Number::PositiveInteger(3)));
-/// }
+/// let actual = parse(" 3 ")?;
+/// assert_eq!(actual, Value::Number(Number::PositiveInteger(3)));
 ///
 /// // the parser will parse "3.2E-1"
-/// if let Ok(actual) = parse("3.2E-1") {
-///   assert_eq!(actual, Value::Number(Number::Float(0.32)));
-/// }
+/// let actual = parse("3.2E-1")?;
+/// assert_eq!(actual, Value::Number(Number::Float(0.32)));
+///
 /// // the parser will parse "null"
-/// if let Ok(actual) = parse("null") {
-///   assert_eq!(actual, Value::Null);
-/// }
+/// let actual = parse("null")?;
+/// assert_eq!(actual, Value::Null);
+///
 /// // the parser will parse "true"
-/// if let Ok(actual) = parse("true") {
-///   assert_eq!(actual, Value::True);
-/// }
+/// let actual = parse("true")?;
+/// assert_eq!(actual, Value::True);
+///
 /// // the parser will parse "false"
-/// if let Ok(actual) = parse("false") {
-///   assert_eq!(actual, Value::False);
-/// }
+/// let actual = parse("false")?;
+/// assert_eq!(actual, Value::False);
 ///
 /// // the parser will parse "\"hello\""
-/// if let Ok(actual) = parse("\"hello\"") {
-///   assert_eq!(actual, Value::String("hello".to_string()))
-/// }
+/// let actual = parse("\"hello\"")?;
+/// assert_eq!(actual, Value::String("hello".to_string()));
+///
+/// # Ok(())
 /// # }
 /// ```
 pub fn parse<'a>(input: &'a str) -> Result<Value, Box<dyn Error + 'a>> {
