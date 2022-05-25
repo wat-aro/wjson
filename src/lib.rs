@@ -14,11 +14,14 @@ use nom::{
 };
 use null::null;
 use number::{number, Number};
-use std::error::Error;
+use std::{collections::HashMap, error::Error};
 use string::string;
+
+type Map = HashMap<String, Value>;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
+    Object(Map),
     Array(Vec<Value>),
     Number(Number),
     String(String),
@@ -81,6 +84,7 @@ fn json(input: &str) -> IResult<&str, Value> {
 
 fn value_parser(input: &str) -> IResult<&str, Value> {
     alt((
+        map(object, |m| Value::Object(m)),
         map(array, |v| Value::Array(v)),
         map(number, |num| Value::Number(num)),
         map(string, |json_string| Value::String(json_string.0)),
@@ -88,6 +92,10 @@ fn value_parser(input: &str) -> IResult<&str, Value> {
         value(Value::True, true_parser),
         value(Value::False, false_parser),
     ))(input)
+}
+
+fn object(input: &str) -> IResult<&str, Map> {
+    value(HashMap::new(), delimited(tag("{"), ws, tag("}")))(input)
 }
 
 fn array(input: &str) -> IResult<&str, Vec<Value>> {
@@ -176,6 +184,13 @@ mod tests {
                 ]
             )
         );
+        Ok(())
+    }
+
+    #[test]
+    fn parse_empty_object() -> TestResult {
+        let value = object("{ }")?;
+        assert_eq!(value, ("", HashMap::new()));
         Ok(())
     }
 }
