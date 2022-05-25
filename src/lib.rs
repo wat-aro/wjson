@@ -17,11 +17,9 @@ use number::{number, Number};
 use std::{collections::HashMap, error::Error};
 use string::string;
 
-type Map = HashMap<String, Value>;
-
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
-    Object(Map),
+    Object(HashMap<String, Value>),
     Array(Vec<Value>),
     Number(Number),
     String(String),
@@ -38,6 +36,7 @@ pub enum Value {
 /// use wson::number::Number;
 /// use wson::{parse, Value};
 /// # use std::error;
+/// use std::collections::HashMap;
 /// # fn main() -> Result<(), Box<dyn error::Error>> {
 ///
 ///
@@ -69,6 +68,16 @@ pub enum Value {
 /// let actual = parse("\"hello\"")?;
 /// assert_eq!(actual, Value::String("hello".to_string()));
 ///
+/// // the parser will parse "{\"title\": \"TITLE1\", \"revision\": 12}"
+/// let value = parse("{\"title\": \"TITLE1\", \"revision\": 12}")?;
+/// let mut h = HashMap::new();
+/// h.insert("title".to_string(), Value::String("TITLE1".to_string()));
+/// h.insert(
+///     "revision".to_string(),
+///     Value::Number(Number::PositiveInteger(12)),
+/// );
+/// assert_eq!(value, Value::Object(h));
+///
 /// # Ok(())
 /// # }
 /// ```
@@ -94,8 +103,34 @@ fn value_parser(input: &str) -> IResult<&str, Value> {
     ))(input)
 }
 
-fn object(input: &str) -> IResult<&str, Map> {
-    value(HashMap::new(), delimited(tag("{"), ws, tag("}")))(input)
+fn object(input: &str) -> IResult<&str, HashMap<String, Value>> {
+    alt((
+        value(HashMap::new(), delimited(tag("{"), ws, tag("}"))),
+        map(delimited(tag("{"), members, tag("}")), |v| {
+            let mut h = HashMap::new();
+            for (key, value) in v.into_iter() {
+                h.insert(key, value);
+            }
+            h
+        }),
+    ))(input)
+}
+
+fn members(input: &str) -> IResult<&str, Vec<(String, Value)>> {
+    alt((
+        map(separated_pair(member, tag(","), members), |(m, ms)| {
+            let vec = vec![m];
+            [vec, ms].concat()
+        }),
+        map(member, |p| vec![p]),
+    ))(input)
+}
+
+fn member(input: &str) -> IResult<&str, (String, Value)> {
+    map(
+        separated_pair(delimited(ws, string, ws), tag(":"), element),
+        |(key, value)| (key.0, value),
+    )(input)
 }
 
 fn array(input: &str) -> IResult<&str, Vec<Value>> {
@@ -191,6 +226,64 @@ mod tests {
     fn parse_empty_object() -> TestResult {
         let value = object("{ }")?;
         assert_eq!(value, ("", HashMap::new()));
+        Ok(())
+    }
+
+    #[test]
+    fn parse_a_object() -> TestResult {
+        let value = object("{\"key\": 1}")?;
+        let mut expected = HashMap::new();
+        expected.insert("key".to_string(), Value::Number(Number::PositiveInteger(1)));
+
+        assert_eq!(value, ("", expected));
+        Ok(())
+    }
+
+    #[test]
+    fn a_members() -> TestResult {
+        let value = members("\"key\": 1")?;
+        assert_eq!(
+            value,
+            (
+                "",
+                vec![("key".to_string(), Value::Number(Number::PositiveInteger(1)))]
+            )
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn multi_members() -> TestResult {
+        let value = members("\"key1\": 1, \"key2\": 2")?;
+        assert_eq!(
+            value,
+            (
+                "",
+                vec![
+                    (
+                        "key1".to_string(),
+                        Value::Number(Number::PositiveInteger(1))
+                    ),
+                    (
+                        "key2".to_string(),
+                        Value::Number(Number::PositiveInteger(2))
+                    ),
+                ]
+            )
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn parse_object() -> TestResult {
+        let value = parse("{\"title\": \"TITLE1\", \"revision\": 12}")?;
+        let mut h = HashMap::new();
+        h.insert("title".to_string(), Value::String("TITLE1".to_string()));
+        h.insert(
+            "revision".to_string(),
+            Value::Number(Number::PositiveInteger(12)),
+        );
+        assert_eq!(value, Value::Object(h));
         Ok(())
     }
 }
