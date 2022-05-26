@@ -1,3 +1,6 @@
+//! # wson
+//!
+//! [JSON](https://www.json.org/json-en.html) parser made with [nom](https://docs.rs/nom/latest/nom/).
 pub mod boolean;
 pub mod null;
 pub mod number;
@@ -71,13 +74,10 @@ pub enum Value {
 ///
 /// // the parser will parse "{\"title\": \"TITLE1\", \"revision\": 12}"
 /// let value = parse("{\"title\": \"TITLE1\", \"revision\": 12}")?;
-/// let mut h = HashMap::new();
-/// h.insert("title".to_string(), Value::String("TITLE1".to_string()));
-/// h.insert(
-///     "revision".to_string(),
-///     Value::Number(Number::PositiveInteger(12)),
-/// );
-/// assert_eq!(value, Value::Object(h));
+/// assert_eq!(value, Value::Object(HashMap::from([
+///   ("title".to_string(), Value::String("TITLE1".to_string())),
+///   ("revision".to_string(), Value::Number(Number::PositiveInteger(12)))
+/// ])));
 ///
 /// # Ok(())
 /// # }
