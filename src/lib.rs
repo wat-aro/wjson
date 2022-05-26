@@ -7,8 +7,9 @@ use boolean::{false_parser, true_parser};
 use nom::{
     branch::alt,
     bytes::complete::tag,
-    character::complete::space0,
-    combinator::{map, value},
+    character::complete::{newline, space1},
+    combinator::{map, recognize, value},
+    multi::{many0, many1},
     sequence::{delimited, separated_pair},
     IResult,
 };
@@ -104,16 +105,30 @@ fn value_parser(input: &str) -> IResult<&str, Value> {
 }
 
 fn object(input: &str) -> IResult<&str, HashMap<String, Value>> {
-    alt((
-        value(HashMap::new(), delimited(tag("{"), ws, tag("}"))),
-        map(delimited(tag("{"), members, tag("}")), |v| {
-            let mut h = HashMap::new();
-            for (key, value) in v.into_iter() {
-                h.insert(key, value);
-            }
-            h
-        }),
-    ))(input)
+    delimited(
+        ws,
+        alt((
+            value(
+                HashMap::new(),
+                delimited(delimited(ws, tag("{"), ws), ws, delimited(ws, tag("}"), ws)),
+            ),
+            map(
+                delimited(
+                    delimited(ws, tag("{"), ws),
+                    members,
+                    delimited(ws, tag("}"), ws),
+                ),
+                |v| {
+                    let mut h = HashMap::new();
+                    for (key, value) in v.into_iter() {
+                        h.insert(key, value);
+                    }
+                    h
+                },
+            ),
+        )),
+        ws,
+    )(input)
 }
 
 fn members(input: &str) -> IResult<&str, Vec<(String, Value)>> {
@@ -158,7 +173,7 @@ fn element(input: &str) -> IResult<&str, Value> {
 }
 
 fn ws(input: &str) -> IResult<&str, &str> {
-    space0(input)
+    recognize(many0(alt((recognize(many1(newline)), space1))))(input)
 }
 
 #[cfg(test)]
@@ -230,6 +245,13 @@ mod tests {
     }
 
     #[test]
+    fn parse_empty_object2() -> TestResult {
+        let value = object(" { } ")?;
+        assert_eq!(value, ("", HashMap::new()));
+        Ok(())
+    }
+
+    #[test]
     fn parse_a_object() -> TestResult {
         let value = object("{\"key\": 1}")?;
         let mut expected = HashMap::new();
@@ -276,7 +298,12 @@ mod tests {
 
     #[test]
     fn parse_object() -> TestResult {
-        let value = parse("{\"title\": \"TITLE1\", \"revision\": 12}")?;
+        let value = parse(
+            "{
+               \"title\": \"TITLE1\",
+               \"revision\": 12
+             }",
+        )?;
         let mut h = HashMap::new();
         h.insert("title".to_string(), Value::String("TITLE1".to_string()));
         h.insert(
@@ -284,6 +311,92 @@ mod tests {
             Value::Number(Number::PositiveInteger(12)),
         );
         assert_eq!(value, Value::Object(h));
+        Ok(())
+    }
+
+    #[test]
+    fn ws_newline() -> TestResult {
+        let value = ws("
+")?;
+        assert_eq!(value, ("", "\n"));
+        Ok(())
+    }
+
+    #[test]
+    fn parse_newline_object() -> TestResult {
+        let value = parse(
+            "{
+
+}",
+        )?;
+        assert_eq!(value, Value::Object(HashMap::new()));
+        Ok(())
+    }
+
+    #[test]
+    fn parse_newline_object2() -> TestResult {
+        let value = parse(
+            "{
+
+            }",
+        )?;
+        assert_eq!(value, Value::Object(HashMap::new()));
+        Ok(())
+    }
+
+    // https://json.org/example.html
+    #[test]
+    fn parse_example() -> TestResult {
+        let value = parse(
+            "{\"menu\": {
+               \"id\": \"file\",
+               \"value\": \"File\",
+               \"popup\": {
+                 \"menuitem\": [
+                   {\"value\": \"New\", \"onclick\": \"CreateNewDoc()\"},
+                   {\"value\": \"Open\", \"onclick\": \"OpenDoc()\"},
+                   {\"value\": \"Close\", \"onclick\": \"CloseDoc()\"}
+                 ]
+               }
+            }}",
+        )?;
+        let expected = Value::Object(HashMap::from([(
+            "menu".to_string(),
+            Value::Object(HashMap::from([
+                ("id".to_string(), Value::String("file".to_string())),
+                ("value".to_string(), Value::String("File".to_string())),
+                (
+                    "popup".to_string(),
+                    Value::Object(HashMap::from([(
+                        "menuitem".to_string(),
+                        Value::Array(vec![
+                            Value::Object(HashMap::from([
+                                ("value".to_string(), Value::String("New".to_string())),
+                                (
+                                    "onclick".to_string(),
+                                    Value::String("CreateNewDoc()".to_string()),
+                                ),
+                            ])),
+                            Value::Object(HashMap::from([
+                                ("value".to_string(), Value::String("Open".to_string())),
+                                (
+                                    "onclick".to_string(),
+                                    Value::String("OpenDoc()".to_string()),
+                                ),
+                            ])),
+                            Value::Object(HashMap::from([
+                                ("value".to_string(), Value::String("Close".to_string())),
+                                (
+                                    "onclick".to_string(),
+                                    Value::String("CloseDoc()".to_string()),
+                                ),
+                            ])),
+                        ]),
+                    )])),
+                ),
+            ])),
+        )]));
+        assert_eq!(value, expected);
         Ok(())
     }
 }
