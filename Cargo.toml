@@ -1,10 +1,13 @@
 [package]
 name = "wson"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 license = "MIT"
 authors = ["wat-aro <kazutas1008@gmail.com>"]
 description = "JSON parser made with nom"
+repository = "https://github.com/wat-aro/wson/"
+documentation= "https://docs.rs/wson/"
+keywords = ["json"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
