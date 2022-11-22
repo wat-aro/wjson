@@ -11,7 +11,7 @@ use nom::{
     branch::alt,
     bytes::complete::tag,
     character::complete::{newline, space1},
-    combinator::{map, recognize, value},
+    combinator::{all_consuming, map, recognize, value},
     multi::{many0, many1},
     sequence::{delimited, separated_pair},
     IResult,
@@ -83,7 +83,7 @@ pub enum Value {
 /// # }
 /// ```
 pub fn parse<'a>(input: &'a str) -> Result<Value, Box<dyn Error + 'a>> {
-    let (_, result) = json(input)?;
+    let (_, result) = all_consuming(json)(input)?;
 
     Ok(result)
 }
@@ -342,6 +342,12 @@ mod tests {
         )?;
         assert_eq!(value, Value::Object(HashMap::new()));
         Ok(())
+    }
+
+    #[test]
+    fn parse_with_garbage() {
+        let result = parse("{} i like garbage");
+        assert!(result.is_err());
     }
 
     // https://json.org/example.html
