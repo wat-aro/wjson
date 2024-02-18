@@ -88,7 +88,7 @@ pub fn parse<'a>(input: &'a str) -> Result<Value, Box<dyn Error + 'a>> {
     Ok(result)
 }
 
-fn json(input: &str) -> IResult<&str, Value> {
+pub fn json(input: &str) -> IResult<&str, Value> {
     element(input)
 }
 
